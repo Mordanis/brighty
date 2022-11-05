@@ -5,7 +5,7 @@ use anyhow::Result;
 use std::fs::File;
 use std::io::Error;
 use std::io::{Read, Write};
-use tokio::net::{UnixListener, UnixStream};
+use std::os::unix::net::{UnixListener, UnixStream};
 
 pub const SOCKET_PATH: &str = "/run/brighty.socket";
 pub const BASE_BRIGHTNESS_PATH: &str = "/sys/class/backlight";
@@ -71,7 +71,7 @@ pub struct BacklightDeviceServer {
 }
 
 impl BacklightDeviceServer {
-    pub async fn new<T: AsRef<std::ffi::OsStr> + AsRef<std::path::Path>>(dir: T) -> Result<Self> {
+    pub fn new<T: AsRef<std::ffi::OsStr> + AsRef<std::path::Path>>(dir: T) -> Result<Self> {
         let socket_path = std::path::Path::new(SOCKET_PATH);
         if socket_path.exists() {
             std::fs::remove_file(&socket_path)?;
@@ -109,21 +109,21 @@ impl BacklightDeviceServer {
         })
     }
 
-    pub async fn start(&mut self) {
-        self.listen_for_commands().await;
+    pub fn start(&mut self) {
+        self.listen_for_commands();
     }
 
-    async fn listen_for_commands(&mut self) {
+    fn listen_for_commands(&mut self) {
         loop {
+            std::thread::sleep(std::time::Duration::from_millis(10));
             println!("waiting for command!");
-            let res = self.socket.accept().await;
-            let socket = match res {
+            let res = self.socket.accept();
+            let mut socket = match res {
                 Ok((s, _)) => s,
                 Err(_) => continue,
             };
             let mut buff = [0u8; 256];
-            socket.readable().await;
-            let res = socket.try_read(&mut buff);
+            let res = socket.read(&mut buff);
             println!("got buffer {:?}", &buff[0..5]);
             println!("read result is {:?}", res);
             if !res.is_ok() {
@@ -172,15 +172,14 @@ pub struct BrightnessClient {
 }
 
 impl BrightnessClient {
-    pub async fn new(command: SocketMessage) -> Result<Self> {
-        let socket = UnixStream::connect(SOCKET_PATH).await?;
+    pub fn new(command: SocketMessage) -> Result<Self> {
+        let socket = UnixStream::connect(SOCKET_PATH)?;
         Ok(Self { command, socket })
     }
 
-    pub async fn send(&self) -> Result<()> {
+    pub fn send(&mut self) -> Result<()> {
         let cmd = self.command.to_buff();
-        self.socket.writable().await;
-        self.socket.try_write(&cmd)?;
+        self.socket.write(&cmd)?;
         Ok(())
     }
 }

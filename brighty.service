@@ -1,0 +1,11 @@
+# fancy-web-server.service
+[Unit]
+Description=Brightness Controller For nVidia Laptop
+
+[Service]
+Type=notify
+ExecStart=/usr/bin/brighty_server
+Nice=5
+
+[Install]
+WantedBy=multi-user.target
