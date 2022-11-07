@@ -6,8 +6,8 @@ arch=("x86_64")
 url="https://github.com/Mordanis/brighty"
 license=("MIT")
 makedepends=(cargo git)
-source=('https://github.com/Mordanis/brighty/archive/refs/tags/v0.4.tar.gz')
-sha256sums=('95f0fdc7dfbda5448eed1f1d5cb1a9e373c521708f61c5e84095c3d40676b3aa')
+source=('https://github.com/Mordanis/brighty/archive/refs/tags/v0.4.1.tar.gz')
+sha256sums=('4654d24fe46ab3c97329d27f3ebd83211676a770e064d5e15a608764b0abaf38')
 prepare() {
     cargo fetch --locked --target "$CARCH-unknown-linux-gnu"
 }

@@ -24,7 +24,7 @@ fn get_brightness_dir() -> Result<String> {
     let mut brightness_dir = String::new();
     brightness_config_file.read_to_string(&mut brightness_dir)?;
     println!("brightness config is {:?}", brightness_dir);
-    Ok(brightness_dir)
+    Ok(brightness_dir.replace('\n', ""))
 }
 
 #[cfg(test)]
