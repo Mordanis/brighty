@@ -6,8 +6,8 @@ arch=("x86_64")
 url="https://github.com/Mordanis/brighty"
 license=("MIT")
 makedepends=(cargo git)
-source=('https://github.com/Mordanis/brighty/archive/refs/tags/v0.3.1.tar.gz')
-sha256sums=('20b694a648b2e8bf0c1335c1621d416e40bc6686ebd40db85f9b1252105f5765')
+source=('https://github.com/Mordanis/brighty/archive/refs/tags/v0.4.tar.gz')
+sha256sums=('95f0fdc7dfbda5448eed1f1d5cb1a9e373c521708f61c5e84095c3d40676b3aa')
 prepare() {
     cargo fetch --locked --target "$CARCH-unknown-linux-gnu"
 }
@@ -22,8 +22,7 @@ package() {
         -executable \
         -type f \
         -exec install -Dm0755 -t "$pkgdir/usr/bin/" {} +
-    ls -halt $pkgname-$pkgver.$pkgrel/build
-    install -Dm0644 -t "$pkgdir/usr/lib/systemd/system/brighty.service" $pkgname-$pkgver.$pkgrel/build/brighty.service
-    install -Dm0644 -t "$pkgdir/usr/lib/systemd/system/brighty.socket" $pkgname-$pkgver.$pkgrel/build/brighty.socket
-    install -Dm0644 -t "$pkgdir/etc/brighty.cong" $pkgname-$pkgver.$pkgrel/build/brighty.conf
+    install -Dm0644 -t "$pkgdir/usr/lib/systemd/system/brighty.service" $pkgname-$pkgver/build/brighty.service
+    install -Dm0644 -t "$pkgdir/usr/lib/systemd/system/brighty.socket" $pkgname-$pkgver/build/brighty.socket
+    install -Dm0644 -t "$pkgdir/etc" $pkgname-$pkgver/build/brighty.conf
 }
