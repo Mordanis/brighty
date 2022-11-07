@@ -112,6 +112,7 @@ impl BacklightDeviceServer {
 
         let path = std::path::Path::new(BASE_BRIGHTNESS_PATH).join(dir);
         let brightness_path = path.join("brightness");
+        println!("brightness path will be {:?}", brightness_path);
         let max_brightness_path = path.join("max_brightness");
         let mut brightness = File::options()
             .read(true)

@@ -26,3 +26,12 @@ fn get_brightness_dir() -> Result<String> {
     println!("brightness config is {:?}", brightness_dir);
     Ok(brightness_dir)
 }
+
+#[cfg(test)]
+mod test {
+    #[test]
+    fn test_brightness_can_read() {
+        let brightness = super::get_brightness_dir();
+        assert!(brightness.is_ok());
+    }
+}
