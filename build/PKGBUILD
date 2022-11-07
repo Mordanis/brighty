@@ -1,13 +1,13 @@
 pkgname=brighty
-pkgver=0.1
-pkgrel=0
+pkgver=0.3
+pkgrel=1
 pkgdesc="Brightness Controller For nVidia Laptop"
 arch=("x86_64")
 url="https://github.com/Mordanis/brighty"
 license=("MIT")
 makedepends=(cargo git)
-source=('https://github.com/Mordanis/brighty/archive/refs/tags/v0.2.tar.gz')
-sha256sums=('8d0738c1edd1263b0201af0526aca5e48780e930d8401aa790cd135edad3f94f')
+source=('https://github.com/Mordanis/brighty/archive/refs/tags/v0.3.1.tar.gz')
+sha256sums=('20b694a648b2e8bf0c1335c1621d416e40bc6686ebd40db85f9b1252105f5765')
 prepare() {
     cargo fetch --locked --target "$CARCH-unknown-linux-gnu"
 }
@@ -22,4 +22,7 @@ package() {
         -executable \
         -type f \
         -exec install -Dm0755 -t "$pkgdir/usr/bin/" {} +
+    ls -halt $pkgname-$pkgver.$pkgrel/build
+    install -Dm0644 -t "$pkgdir/usr/lib/systemd/system/brighty.service" $pkgname-$pkgver.$pkgrel/build/brighty.service
+    install -Dm0644 -t "$pkgdir/usr/lib/systemd/system/brighty.socket" $pkgname-$pkgver.$pkgrel/build/brighty.socket
 }
