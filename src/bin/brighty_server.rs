@@ -1,8 +1,10 @@
 use anyhow::Result;
 use brighty;
+use std::io::Read;
 
 fn main() -> Result<()> {
-    let res = brighty::BacklightDeviceServer::new("nvidia_wmi_ec_backlight");
+    let brightness_path = get_brightness_dir()?;
+    let res = brighty::BacklightDeviceServer::new(brightness_path);
     println!("res is {:?}", res);
     if let Ok(mut server) = res {
         server.start();
@@ -11,4 +13,13 @@ fn main() -> Result<()> {
         eprintln!("Cause: {}", e.backtrace())
     }
     Ok(())
+}
+
+fn get_brightness_dir() -> Result<String> {
+    let mut brightness_config_file = std::fs::File::options()
+        .read(true)
+        .open(brighty::CONFIG_FILENAME)?;
+    let mut brightness_dir = String::new();
+    brightness_config_file.read_to_string(&mut brightness_dir)?;
+    Ok(brightness_dir)
 }

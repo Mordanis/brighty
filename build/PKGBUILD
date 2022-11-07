@@ -1,6 +1,6 @@
 pkgname=brighty
-pkgver=0.3
-pkgrel=1
+pkgver=0.4
+pkgrel=0
 pkgdesc="Brightness Controller For nVidia Laptop"
 arch=("x86_64")
 url="https://github.com/Mordanis/brighty"
@@ -25,4 +25,5 @@ package() {
     ls -halt $pkgname-$pkgver.$pkgrel/build
     install -Dm0644 -t "$pkgdir/usr/lib/systemd/system/brighty.service" $pkgname-$pkgver.$pkgrel/build/brighty.service
     install -Dm0644 -t "$pkgdir/usr/lib/systemd/system/brighty.socket" $pkgname-$pkgver.$pkgrel/build/brighty.socket
+    install -Dm0644 -t "$pkgdir/etc/brighty.cong" $pkgname-$pkgver.$pkgrel/build/brighty.conf
 }

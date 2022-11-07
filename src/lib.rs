@@ -1,5 +1,4 @@
 #![feature(unix_chown)]
-use std::os::unix::fs;
 
 use anyhow::Result;
 use std::fs::File;
@@ -9,17 +8,19 @@ use std::os::unix::net::UnixStream;
 
 pub const SOCKET_PATH: &str = "/run/brighty.socket";
 pub const BASE_BRIGHTNESS_PATH: &str = "/sys/class/backlight";
+pub const CONFIG_FILENAME: &str = "/etc/brighty.conf";
 
 #[derive(Debug)]
 pub enum SocketMessage {
     SetBrightnessAbsolute(usize),
     SetRelativeBrightnessUp,
     SetRelativeBrightnessDown,
+    ChangeBrightnessFile(String),
 }
 
 impl SocketMessage {
     fn from_buff(buff: &[u8]) -> Result<Self, Error> {
-        if buff.len() < 5 {
+        if buff.len() < 128 {
             return Err(Error::new(
                 std::io::ErrorKind::Other,
                 "Input buffer not long enough",
@@ -36,27 +37,61 @@ impl SocketMessage {
             }
             let buff_val = u32::from_ne_bytes(msg_bits);
             Ok(Self::SetBrightnessAbsolute(buff_val as usize))
+        } else if buff[0] < 128 {
+            let len = buff[0];
+            let slice = &buff[1..1 + len as usize];
+            let new_brightness_file = match String::from_utf8(slice.into()) {
+                Ok(n) => Ok(n),
+                Err(e) => Err(Error::new(
+                    std::io::ErrorKind::InvalidData,
+                    format!("{}", e),
+                )),
+            }?;
+            Ok(Self::ChangeBrightnessFile(new_brightness_file))
         } else {
             Err(Error::new(
                 std::io::ErrorKind::Other,
-                "Unable to parse string :C",
+                "Unable to parse message from socket :C",
             ))
         }
     }
 
-    fn to_buff(&self) -> [u8; 5] {
+    fn to_buff(&self) -> Result<[u8; 128]> {
         match self {
             Self::SetBrightnessAbsolute(n) => {
                 let msg_bits = (*n as u32).to_ne_bytes();
-                let mut buffer = [0u8; 5];
+                let mut buffer = [0u8; 128];
                 buffer[0] = 2;
                 for i in 0..4 {
                     buffer[i + 1] = msg_bits[i]
                 }
-                buffer
+                Ok(buffer)
             }
-            Self::SetRelativeBrightnessUp => [0u8; 5],
-            Self::SetRelativeBrightnessDown => [1u8, 0, 0, 0, 0],
+            Self::SetRelativeBrightnessUp => Ok([0u8; 128]),
+            Self::SetRelativeBrightnessDown => {
+                let mut out_buffer = [0u8; 128];
+                out_buffer[0] = 1;
+                Ok(out_buffer)
+            }
+            Self::ChangeBrightnessFile(name) => {
+                let mut out_buffer = [0u8; 128];
+                let name_bytes = name.as_bytes();
+                let len = name_bytes.len();
+                if len > 128 {
+                    return Err(anyhow::Error::new(std::io::Error::new(
+                        std::io::ErrorKind::InvalidData,
+                        "The given filename is too long. 128 characters is the max.",
+                    )));
+                }
+
+                // Safe to cast usize -> u8 because we made sure it's below 128
+                out_buffer[0] = len as u8;
+
+                for (i, byte) in name_bytes.into_iter().enumerate() {
+                    out_buffer[i + 1] = *byte;
+                }
+                Ok(out_buffer)
+            }
         }
     }
 }
@@ -105,6 +140,35 @@ impl BacklightDeviceServer {
         })
     }
 
+    fn change_brightness_file(&mut self, fname: String) -> Result<()> {
+        let path = std::path::Path::new(BASE_BRIGHTNESS_PATH).join(fname);
+        let brightness_path = path.join("brightness");
+        let max_brightness_path = path.join("max_brightness");
+        let mut brightness = File::options()
+            .read(true)
+            .write(true)
+            .open(brightness_path)?;
+        let mut max_brightness = File::options().read(true).open(max_brightness_path)?;
+
+        let mut raw_brightness_value = String::new();
+        brightness.read_to_string(&mut raw_brightness_value)?;
+        raw_brightness_value = raw_brightness_value.replace('\n', "");
+        let current_brightness = raw_brightness_value.parse()?;
+
+        let mut max_raw_brightness_value = String::new();
+        max_brightness.read_to_string(&mut max_raw_brightness_value)?;
+        max_raw_brightness_value = max_raw_brightness_value.replace('\n', "");
+        let max_brightness_value = max_raw_brightness_value.parse()?;
+
+        let relative_delta = max_brightness_value / 100;
+
+        self.max_brightness = max_brightness_value;
+        self.brightness_file = brightness;
+        self.current_brightness = current_brightness;
+        self.relative_delta = relative_delta;
+        Ok(())
+    }
+
     pub fn start(&mut self) {
         self.listen_for_commands();
     }
@@ -127,7 +191,7 @@ impl BacklightDeviceServer {
         }
     }
 
-    fn execute_command(&mut self, command: SocketMessage) {
+    fn execute_command(&mut self, command: SocketMessage) -> Result<()> {
         println!("got command {:?}", command);
         match command {
             SocketMessage::SetRelativeBrightnessUp => {
@@ -143,12 +207,14 @@ impl BacklightDeviceServer {
             SocketMessage::SetBrightnessAbsolute(n) => {
                 self.current_brightness = n;
             }
+            SocketMessage::ChangeBrightnessFile(name) => self.change_brightness_file(name)?,
         }
 
         if self.current_brightness > self.max_brightness {
             self.current_brightness = self.max_brightness;
         }
         self.set_brightness();
+        Ok(())
     }
 
     fn set_brightness(&mut self) {
@@ -169,7 +235,7 @@ impl BrightnessClient {
     }
 
     pub fn send(&mut self) -> Result<()> {
-        let cmd = self.command.to_buff();
+        let cmd = self.command.to_buff()?;
         self.socket.write(&cmd)?;
         Ok(())
     }
