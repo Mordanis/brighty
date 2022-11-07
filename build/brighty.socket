@@ -1,0 +1,11 @@
+[Unit]
+Description=Brighty Socket
+
+[Socket]
+ListenStream=/run/brighty.socket
+SocketMode=0660
+SocketUser=root
+SocketGroup=wheel
+
+[Install]
+WantedBy=sockets.target

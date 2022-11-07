@@ -1,0 +1,15 @@
+# fancy-web-server.service
+[Unit]
+Description=Brightness Controller For nVidia Laptop
+AssertPathExists=/usr/bin/brighty_server
+After=network-online.target brighty.socket firewalld.service
+Wants=network-online.target
+Requires=brighty.socket
+
+[Service]
+Type=simple
+ExecStart=/usr/bin/brighty_server
+TimeoutStartSec=0
+
+[Install]
+WantedBy=multiuser.target
