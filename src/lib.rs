@@ -5,7 +5,7 @@ use anyhow::Result;
 use std::fs::File;
 use std::io::Error;
 use std::io::{Read, Write};
-use std::os::unix::net::{UnixListener, UnixStream};
+use std::os::unix::net::UnixStream;
 
 pub const SOCKET_PATH: &str = "/run/brighty.socket";
 pub const BASE_BRIGHTNESS_PATH: &str = "/sys/class/backlight";
@@ -64,7 +64,7 @@ impl SocketMessage {
 #[derive(Debug)]
 pub struct BacklightDeviceServer {
     brightness_file: File,
-    socket: UnixListener,
+    socket: UnixStream,
     max_brightness: usize,
     current_brightness: usize,
     relative_delta: usize,
@@ -73,11 +73,7 @@ pub struct BacklightDeviceServer {
 impl BacklightDeviceServer {
     pub fn new<T: AsRef<std::ffi::OsStr> + AsRef<std::path::Path>>(dir: T) -> Result<Self> {
         let socket_path = std::path::Path::new(SOCKET_PATH);
-        if socket_path.exists() {
-            std::fs::remove_file(&socket_path)?;
-        }
-        let stream = UnixListener::bind(socket_path)?;
-        change_group_to_wheel(&socket_path)?;
+        let stream = UnixStream::connect(socket_path)?;
 
         let path = std::path::Path::new(BASE_BRIGHTNESS_PATH).join(dir);
         let brightness_path = path.join("brightness");
@@ -117,13 +113,8 @@ impl BacklightDeviceServer {
         loop {
             std::thread::sleep(std::time::Duration::from_millis(10));
             println!("waiting for command!");
-            let res = self.socket.accept();
-            let mut socket = match res {
-                Ok((s, _)) => s,
-                Err(_) => continue,
-            };
             let mut buff = [0u8; 256];
-            let res = socket.read(&mut buff);
+            let res = self.socket.read(&mut buff);
             println!("got buffer {:?}", &buff[0..5]);
             println!("read result is {:?}", res);
             if !res.is_ok() {
@@ -182,29 +173,4 @@ impl BrightnessClient {
         self.socket.write(&cmd)?;
         Ok(())
     }
-}
-
-fn change_group_to_wheel<T: AsRef<std::path::Path> + Copy>(file_path: T) -> Result<()> {
-    let mut groupfile = File::options().read(true).open("/etc/group")?;
-    let mut groups = String::new();
-    groupfile.read_to_string(&mut groups)?;
-    let mut gid: Option<u32> = None;
-    for line in groups.split('\n') {
-        let fields = line.split(':').into_iter().collect::<Vec<&str>>();
-        if let Some(name) = fields.get(0) {
-            println!("checking name {name}");
-            if name != &"wheel" {
-                continue;
-            }
-            if let Ok(i) = fields[2].parse() {
-                gid = Some(i);
-            }
-        }
-    }
-    fs::chown(file_path, None, gid)?;
-
-    let permissions = std::os::unix::fs::PermissionsExt::from_mode(0o660);
-    std::fs::set_permissions(file_path, permissions)?;
-    println!("successfully set permissions!");
-    Ok(())
 }

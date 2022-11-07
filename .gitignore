@@ -1,1 +1,5 @@
 /target
+*.tar.gz
+/build/pkg
+/build/src
+*.tar.zst
